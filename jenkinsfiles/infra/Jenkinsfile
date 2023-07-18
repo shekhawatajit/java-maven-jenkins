@@ -1,96 +1,16 @@
-@Library("atc-jenkins-shared-library")
-import com.bmw.atc.jenkins.steps.*
-
-final def INPUT_PARAM_NAME="Stage"
-def emailSteps = new EmailSteps(this)
-def pipelineSteps = new PipelineSteps(this)
-def scmSteps = new SCMSteps(this)
-def pipelineTypeString = pipelineType.getChoiceString()
-def projectName = pipelineSteps.multiBranchDisplayName()
-
-// Project variables
-def inputParam = ""
-def mvnParams = ""
-
-final def credentialsId = "00000000-0000-0000-ffff-000000000003"
-
 pipeline {
-	agent { label projectName }
-	options {
-	    disableConcurrentBuilds()
-        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
-	}
-	
+	agent any
 	tools{
-	    maven "$projectName-maven"
-	    
-	    // available jdks jdk-1.8.0_131, jdk-1.7.0_80, zulu-jdk8u202
-	    jdk 'zulu-jdk8u202'
+	    maven "Maven 3.8.0"
 	}
-
 	stages {
-		stage("Setup") {
-			steps{
-				script{
-				    inputParam = params[INPUT_PARAM_NAME]
-				}
-			}
-		}
-
-        stage("SCM: Checkout"){
-            steps{
-                script{
-                    def gitURL="https://atc.bmwgroup.net/bitbucket/scm/back2code/cloudmigsupporttest.git"
-
-                    log.outputBanner("Checking out from the SCM")
-                    scmSteps.cloneRepository(gitURL, env.BRANCH_NAME, credentialsId)
-                }
-            }
-        }
 
 		stage("Jenkins: build") {
 			steps {
 			    script{
-                    log.outputBanner("Building project")
-                    pipelineSteps.mavenInstall(mvnParams)
-
-                    pipelineSteps.archiveArtifacts("**/target/**/*", "")
-                    //pipelineSteps.recordJunitResults()
+                    sh "mvn clean package -DskipTests=true"
 				}
 			}
 		}
-			
-		stage("Nexus") {
-            steps {
-                script{
-                    log.outputBanner("Uploading artifact to Nexus")
-                    pipelineSteps.mavenDeploy(mvnParams)
-                }
-            }
-		}
-	}
-	
-	post {
-        success {
-            script {
-            	log.outputBanner("Sending notification")
-                currentBuild.result = "SUCCESS"
-                //emailSteps.sendMail("", projectName)
-            }
-        }
-        failure {
-            script {
-            	log.outputBanner("Sending notification to culprits")
-                currentBuild.result = "FAILURE"
-                emailSteps.sendMailToCulprits(projectName)
-            }
-        }
-        unstable { 
-            script {
-            	log.outputBanner("Sending notification")
-                currentBuild.result = "UNSTABLE"
-                //emailSteps.sendMail("", projectName)
-            }
-        }
     }
-}
+}			
