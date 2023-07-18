@@ -1,4 +1,4 @@
-package com.bmwgroup.hashing;
+package com.sample.hashing;
 
 /**
  * Hello world!
